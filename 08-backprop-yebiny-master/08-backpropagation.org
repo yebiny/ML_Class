@@ -1,0 +1,406 @@
+#+TITLE:
+# +AUTHOR:    Ian J. Watson
+# +EMAIL:     ian.james.watson@cern.ch
+# +DATE:      University of Seoul Graduate Course
+#+startup: beamer
+#+LaTeX_CLASS: beamer
+#+OPTIONS: ^:{} toc:nil H:2
+#+BEAMER_FRAME_LEVEL: 2
+#+LATEX_HEADER: \usepackage{tikz}  \usetikzlibrary{hobby}
+#+LATEX_HEADER: \usepackage{amsmath} \usepackage{graphicx} \usepackage{neuralnetwork}
+  
+# Theme Replacements
+#+BEAMER_THEME: Madrid
+#+LATEX_HEADER: \usepackage{mathpazo} \usepackage{bm}
+# +LATEX_HEADER: \definecolor{IanColor}{rgb}{0.4, 0, 0.6}
+#+BEAMER_HEADER: \definecolor{IanColor}{rgb}{0.0, 0.4, 0.6}
+#+BEAMER_HEADER: \usecolortheme[named=IanColor]{structure} % Set a nicer base color
+#+BEAMER_HEADER: \newcommand*{\LargerCdot}{\raisebox{-0.7ex}{\scalebox{2.5}{$\cdot$}}} 
+# +LATEX_HEADER: \setbeamertemplate{items}{$\LargerCdot$} % or \bullet, replaces ugly png
+#+BEAMDER_HEADER: \setbeamertemplate{items}{$\bullet$} % or \bullet, replaces ugly png
+#+BEAMER_HEADER: \colorlet{DarkIanColor}{IanColor!80!black} \setbeamercolor{alerted text}{fg=DarkIanColor} \setbeamerfont{alerted text}{series=\bfseries}
+#+LATEX_HEADER: \usepackage{epsdice}
+
+  
+#+LATEX: \setbeamertemplate{navigation symbols}{} % Turn off navigation
+  
+#+LATEX: \newcommand{\backupbegin}{\newcounter{framenumberappendix} \setcounter{framenumberappendix}{\value{framenumber}}}
+#+LATEX: \newcommand{\backupend}{\addtocounter{framenumberappendix}{-\value{framenumber}} \addtocounter{framenumber}{\value{framenumberappendix}}}
+  
+#+LATEX: \institute[UoS]{University of Seoul}
+#+LATEX: \author{Ian J. Watson}
+#+LATEX: \title[Backpropagation]{Introduction to Machine Learning (by Implementation)} \subtitle{Lecture 8: Backpropagation}
+#+LATEX: \date[ML (2019)]{University of Seoul Graduate Course 2019}
+#+LATEX: \titlegraphic{\includegraphics[height=.14\textheight]{../../../course/2018-stats-for-pp/KRF_logo_PNG.png} \hspace{15mm} \includegraphics[height=.2\textheight]{../../2017-stats-for-pp/logo/UOS_emblem.png}}
+#+LATEX: \maketitle
+
+# +LATEX:  \newcommand{\mylinktext}[4]{\ifthenelse{\equal{1}{1}}{$w^l_{jk}$}{}}
+#+LATEX:  \newcommand{\mylinktext}[4]{{$w^l_{jk}$}}
+
+* Introduction
+
+** The Feed-Forward Neural Network
+
+#+begin_export latex
+
+\centering
+\begin{neuralnetwork}[height=3]
+ \newcommand{\x}[2]{$x_#2$}
+ \newcommand{\y}[2]{$y$}
+ \newcommand{\hfirst}[2]{\small $h_#2$}
+ \newcommand{\hsecond}[2]{\small $h^{(2)}_#2$}
+ \inputlayer[count=2, bias=false, title=Input\\layer, text=\x]
+ \hiddenlayer[count=2, bias=false, title=Hidden\\layer, text=\hfirst] \linklayers
+% \hiddenlayer[count=3, bias=false, title=Hidden\\layer 2, text=\hsecond] \linklayers
+ \outputlayer[count=1, title=Output\\layer, text=\y] \linklayers
+\end{neuralnetwork}
+#+end_export
+
+- A small feed-forward neural network
+  - \(y = f(x_1, x_2) = \sigma(-1 + 2 x_1 + 2 x_2) + \sigma(1 - 2 x_1 - 2 x_2)\)
+- Decompose the function into:
+  - the /input layer/ of \(\hat{x}\),
+  - the /hidden layer/ which calculates \(h_i = \beta_i \cdot x\) then passes if
+    through the /activation function/ \sigma, (called "sigmoid" in NN terms)
+    - as in logistic, there is an extra \(\beta_0\), called the
+      /bias/, which controls how big the input into the node must be to activate
+  - the /output layer/ which sums the results of the hidden layer and gives \(y\)
+    - \(y = \sigma(0 + 1 \cdot h_1 + 1 \cdot h_2)\)
+# , \(h_1 = 2 x_1 + 2 x_2 - 1\), \(h_2 = - 2 x_1 - 2 x_2 + 1\)
+# - The logistic function (when in a NN its called "sigmoid") is our "activation function"
+
+** Feed-Forward Neural Network
+
+#+begin_export latex
+
+\centering
+\begin{neuralnetwork}[height=5]
+ \newcommand{\x}[2]{$x_#2$}
+ \newcommand{\y}[2]{$y_#2$}
+ \newcommand{\hfirst}[2]{\small $h^{1}_#2$}
+ \newcommand{\hsecond}[2]{\small $h^{2}_#2$}
+ \inputlayer[count=3, bias=false, title=Input\\layer, text=\x]
+ \hiddenlayer[count=4, bias=false, title=Hidden\\layer 1, text=\hfirst] \linklayers
+ \hiddenlayer[count=5, bias=false, title=Hidden\\layer 2, text=\hsecond] \linklayers
+ \outputlayer[count=3, title=Output\\layer, text=\y] \linklayers
+\end{neuralnetwork}
+#+end_export
+
+- We can even have several hidden layers
+  - The previous layer acts the same as an /input layer/ to the next
+    layer
+- We call each node in the network a /neuron/
+  - At each neuron, the output of the node is \(\sigma(\sum \text{weighted\ node\ inputs} + \text{bias})\)
+
+** Training a Neural Network
+
+#+attr_latex: :width .33\textwidth
+[[file:XOR_turnon_untrained.png]]
+\hfill \(\to\) \hfill
+#+attr_latex: :width .33\textwidth
+[[file:XOR_turnon.png]]
+
+- What does it mean to train a neural network?
+- Consider the XNOR network from last week
+- There we set by hand, but could try to "train" the network
+- Start with random weights and biases, reduce the loss function
+  \(C(x,y|w,b) = \sum_i |y^\text{true}_i - y(x_i)|^2\) where \(i\)
+  ranges over our 4 samples \((x_i, y_i)\) and \(y(x_i)\) is the network output
+  - And, of course, the way we've seen to do this is using /gradient descent/
+
+#+begin_src python :exports none :session
+import matplotlib.pyplot as plt
+import numpy as np
+
+x1 = [0, 1]
+y1 = [0, 1]
+
+x0 = [1, 0]
+y0 = [0, 1]
+
+plt.clf()
+plt.scatter(x0, y0, color='r', s=50)
+plt.scatter(x1, y1, color='b', s=50)
+plt.title("XOR")
+plt.savefig("XOR.png")
+
+x = np.linspace(0, 1, 100)
+y = 0.1*(1. / (1. + np.exp(-1000*x+725))) + x
+plt.plot(x, y, color="green", linestyle="-.", lw=1)
+plt.plot([0., 1.], [0, 1.], color="black", linestyle="-.", lw=0.75)
+plt.plot([0, 0.5], [1, 0.5], color="r", ls="--", lw=1)
+plt.plot([1, 0.5], [0, 0.5], color="r", ls="--", lw=1)
+
+x = np.linspace(0, 1, 100)
+y = 0.1*(1. / (1. + np.exp(-1000*(1-x)+725))) + x
+plt.plot(x, y, color="magenta", linestyle="-.", lw=1)
+plt.plot([0., 1.], [0, 1.], color="black", linestyle="-.", lw=0.75)
+plt.plot([0, 0.5], [1, 0.5], color="r", ls="--", lw=1)
+plt.plot([1, 0.5], [0, 0.5], color="r", ls="--", lw=1)
+plt.savefig("XOR_turnon.png")
+
+plt.clf()
+plt.scatter(x0, y0, color='r', s=50)
+plt.scatter(x1, y1, color='b', s=50)
+x = np.linspace(0, 1, 100)
+y = 0.1*(1. / (1. + np.exp(-1000*x+125))) + 0.4*x + 0.2
+plt.plot(x, y, color="magenta", linestyle="-.", lw=1)
+plt.plot([0., 1.], [0.2, 0.6], color="black", linestyle="-.", lw=0.75)
+
+x = np.linspace(0, 1, 100)
+y = 0.1*(1. / (1. + np.exp(-1000*(1-x)+725))) - 0.7*x + 0.8
+plt.plot(x, y, color="green", linestyle="-.", lw=1)
+plt.plot([0., 1.], [0.8, 0.1], color="black", linestyle="-.", lw=0.75)
+plt.savefig("XOR_turnon_untrained.png")
+
+#+end_src
+
+#+RESULTS:
+| <matplotlib.lines.Line2D | object | at | 0x7f8f0ebaf278> |
+
+** Gradient Descent on a Neural Network
+
+- Consider running gradient descent on a neural network
+- For some particular weight, \(w^l_{jk}\), we want to find
+  \(\frac{\partial L}{\partial w^l_{jk}}\)
+- We could look at this and say, it big, complicated, lets use our
+  gradient estimator: \(\frac{\partial L}{\partial w^l_{jk}} =
+  \frac{L(w^l_{jk} + \Delta) - L(w^l_{jk})}{\Delta}\) for some small
+  \Delta
+- But in large networks, we can have millions of nodes: each
+  evaluation of \(L\) requires one forward pass through the
+  network, and we need two (at least) for each weight/bias
+  - *This means millions of forward passes through the network
+    for a single update*
+- And remember, our stochastic algorithm used an update /per known
+  datapoint/
+- We need a better way \ldots
+
+** Notation
+
+#+begin_export latex
+
+\centering
+\begin{neuralnetwork}[height=4]
+ \newcommand{\x}[2]{$x_#2$}
+ \newcommand{\y}[2]{$y_#2$}
+ \newcommand{\hfirst}[2]{\small $a^{1}_#2$}
+ \newcommand{\hsecond}[2]{\small $a^{2}_#2$}
+ \inputlayer[count=3, bias=false, title=, text=\x]
+ \hiddenlayer[count=4, bias=false, title=, text=\hfirst] \linklayers
+ \hiddenlayer[count=4, bias=false, title=, text=\hsecond] \linklayers
+ \outputlayer[count=3, title=, text=\y] \linklayers
+\end{neuralnetwork}
+#+end_export
+
+- Of course, the network has a very particular structure: series of
+  evaluations passed from one layer to another, sums inside functions
+- Some notation:
+  - We have a network of \(L\) layers [input layer 0, output layer L]
+  - j'th node on the l'th layer have output \(a^l_j = \sigma(z^l_j) =
+    \sigma(\sum_k w^l_{jk} a_k^{l-1} + b^l_j)\)
+  - So, the output of the network is \(a^L_j\)
+  - and the the inputs \(x_j = a^0_j\)
+
+** Backpropagation
+
+\vspace{-1mm}
+#+begin_export latex
+
+\centering
+\begin{neuralnetwork}[height=3,layerspacing=3.5cm,nodespacing=1.25cm]
+ \newcommand{\x}[2]{{\ifthenelse{\equal{#2}{2}}{$a^{l-1}_k$}{}}}
+% \newcommand{\y}[2]{$a^{l+1}_#2$}
+ \newcommand{\y}[2]{}
+ \newcommand{\hfirst}[2]{\small $a^{l}_j = \sigma(z^l_j)$}
+ \newcommand{\hsecond}[2]{\small $a^{(l)}_j$}
+ 
+ \newcommand{\linklabelsA}[4]{$w^l_{jk}$}
+
+ \inputlayer[count=3, bias=false, title=, text=\x]
+ \hiddenlayer[count=1, bias=false, title=, text=\hfirst] \linklayers
+ \link[from layer=0, to layer=1, from node=2, to node=1, label=\linklabelsA]
+
+ % from layer=#1, from node=#2, to layer=#3, to node=#4
+ \newcommand{\mylinktextp}[4] {$w^{l+1}_{#4j} \delta^l_{#4}$}
+ \setdefaultlinklabel{\mylinktextp}
+ \outputlayer[count=3, title=, text=\y] \linklayers
+\end{neuralnetwork}
+#+end_export
+
+\vspace{-2mm}
+- It turns out (from the chain rule), that the gradients can be
+  calculated very simply with one forward pass, and one  backward pass
+  propagating the derivatives (hence /backpropagation/)
+- Imagine we sit at node $a^l_j$ and we want to find the derivative of $w^l_{jk}$
+  - \(\frac{\partial L}{\partial w^l_{jk}} = a^{l-1}_k \delta^l_j\), \(\frac{\partial L}{\partial b^l_{j}} = \delta^l_j\)
+  - \(\delta^l_j = \sigma'(z^l_j) \sum_{k'} w^{l+1}_{k'j} \delta^{l+1}_{k'} \)
+- That is, the derivative is a product of the activation in $a^{l-1}_k$ and the weighted sum of derivatives coming from the outputs \delta^{l+1}_{k'}
+  - Notice that the \(\delta^l_j\) we calculate on this layer will then be used when setting weights on layer \(l-1\)
+
+** Backpropagation at the Output Layer
+
+- \(\delta^l_j = \sigma'(z^l_j) \sum_{k'} w^{l+1}_{k'j} \delta^{l+1}_{k'}\) can be thought of as the error of the node (look
+  closely on previous page, all \(w^l_{jk}\) use the same \(\delta^l_j\))
+- So, where does it originally come from?
+- Well, at the final layer there is no \(\delta^{L+1}\) to be able to
+  use, so this is our starting point by considering the cost function
+- \(C = \frac{1}{2}\sum_j (y_j - a^L_j)^2 = \frac{1}{2}\sum_j (y_j - \sigma(z^L_j))^2 = \frac{1}{2}\sum_j (y_j - \sigma(\sum_k w^L_{jk} a^{L-1}_k + b^L_j))^2\)
+  - Think of the chain rule operating on the expanding piece at each step
+- \(\frac{\partial C}{\partial w^L_{jk}} = (a^L_j - y_j) \sigma'(z^L_j) a^{L-1}_k = a^{L-1}_k \delta^L_j \), \(\frac{\partial C}{\partial b^L_{j}} = (a^L_j - y_j) \sigma'(z^L_j) = \delta^L_j \)
+- So, \(\delta^L_j = (y_j - a^L_j) \sigma'(z^L_j)\) is our starting point for the backpropagation
+  - Use it to set the weights on layer \(L\), then go back a layer,
+    use it as input to find \(\delta^{L-1}_j\) and then set the
+    weights on layer \(L-1\) and so on
+- Notice in the derivation, there was no particular property of \sigma
+  used other than the fact that we can differentiate it
+  - Implies that any activation function will work for backpropagation
+
+** Saturation
+
+***                                                                   :BMCOL:
+    :PROPERTIES:
+    :BEAMER_col: .7
+    :END:
+
+#+begin_export latex
+\centering
+\begin{neuralnetwork}[height=3,layerspacing=3.5cm,nodespacing=1.25cm]
+ \newcommand{\x}[2]{{\ifthenelse{\equal{#2}{2}}{$a^{l-1}_k$}{}}}
+% \newcommand{\y}[2]{$a^{l+1}_#2$}
+ \newcommand{\y}[2]{}
+ \newcommand{\hfirst}[2]{\small $a^{l}_j = \sigma(z^l_j)$}
+ \newcommand{\hsecond}[2]{\small $a^{(l)}_j$}
+ 
+ \newcommand{\linklabelsA}[4]{$w^l_{jk}$}
+
+ \inputlayer[count=3, bias=false, title=, text=\x]
+ \hiddenlayer[count=1, bias=false, title=, text=\hfirst] \linklayers
+ \link[from layer=0, to layer=1, from node=2, to node=1, label=\linklabelsA]
+
+ % from layer=#1, from node=#2, to layer=#3, to node=#4
+ \newcommand{\mylinktextp}[4] {$w^{l+1}_{#4j} \delta^l_{#4}$}
+ \setdefaultlinklabel{\mylinktextp}
+ \outputlayer[count=3, title=, text=\y] \linklayers
+\end{neuralnetwork}
+#+end_export
+
+***                                                                   :BMCOL:
+    :PROPERTIES:
+    :BEAMER_col: .3
+    :END:
+#+attr_latex: :width .8\textwidth
+[[file:sigmoid.png]]
+
+#+attr_latex: :width .8\textwidth
+[[file:dsigmoid.png]]
+
+***                                                         :B_ignoreheading:
+    :PROPERTIES:
+    :BEAMER_env: ignoreheading
+    :END:
+
+- Look at the diagram again and the equation: \(\frac{\partial
+  L}{\partial w^l_{jk}} = a^{l-1}_k \delta^l_j\), \(\frac{\partial
+  L}{\partial b^l_{j}} = \delta^l_j\)
+- Note a few things:
+  - If \(a^{l-1}_k\) is close to 0, the weight \(w^l_{jk}\) won't learn. Only
+    inputs which turn on the previous node can cause a weight to learn
+  - If \(\delta^l_j \propto \sigma'(z^l_j) = a^l_j (1 - a^l_j)\) is
+    close to 0 (fully activated or fully deactivated), the node won't learn
+- It could be the case that a node is fully active/deactive for all inputs
+- The case where a node gets stuck from this is called "saturation"
+# - Other activation functions can avoid this gradient saturation
+
+** Backpropagation Equations and Operation
+
+\vspace{-5.5mm}
+*** Equations of Backprop                                             :BMCOL:
+    :PROPERTIES:
+    :BEAMER_col: .4
+    :END:
+
+**** 
+
+- \(\delta^L_j = (a^L_j - y_j) \sigma'(z^L_j)\)
+- \(\delta^l_j = \sigma'(z^l_j) \sum_{k'} w^{l+1}_{k'j} \delta^{l+1}_{k'} \)
+- \(\frac{\partial C}{\partial w^l_{jk}} = a^{l-1}_k \delta^l_j\)
+- \(\frac{\partial C}{\partial b^l_{j}} = \delta^l_j\)
+
+*** Reminder                                                          :BMCOL:
+    :PROPERTIES:
+    :BEAMER_col: .55
+    :END:
+
+**** 
+
+- \(a^l_j = \sigma(z^l_j)\)
+- \(z^l_j = b^l_j + \sum_k w^l_{jk} a^{l-1}_k\)
+- \(\sigma'(x) = \sigma(x) (1 - \sigma(x))\)
+- \(\sigma(x) = \frac{1}{1 + e^{-x}}\)
+- \(C(x, y) = \frac{1}{2} \sum_i (y_i - a^L_i)\) where \(a^L_i\) is calculated with input \(a^0_i=x_i\)
+
+***                                                         :B_ignoreheading:
+    :PROPERTIES:
+    :BEAMER_env: ignoreheading
+    :END:
+
+- In the same way that the \(a^l_j\) are wrapping up the weighted sums
+  and activations of the layers feeding forward, the \(\delta^l_j\)
+  wrap up the partial derivatives of the chain rule which must be
+  expanded from the cost \(C\)
+  - Hopefully, you can see how the proof for the transfer to previous
+    layer would work by running further expansions of \(a^{L-1}_k\) on
+    the previous page
+- We calculate the \(a^l_j\) forward, then calculate the
+  \(\frac{\partial C}{\partial w^l_{jk}}\), \(\delta^l_j\)  backward
+- And then use this to find \(\frac{\partial C}{\partial b^l_{j}}\) and run our SGD
+  - The hardest part is keeping track of all the indices (!)
+  - Conceptually, the \(w^l_{jk}\) and \(b^l_{j}\) live on the edges between the nodes
+
+* Exercises
+
+** Exercises
+
+- =initialize_weights(n_nodes, initialize_fn=random)=
+  - =n_nodes= should be a list of the number of nodes at each layer,
+    including input and output (see the =test_initialize_weights= in
+    =test_neural= for further commentary)
+  - Use your =rand.random= function to initialize randomly between 0
+    and 1
+- Should have =feedforward= from last week, today, lets assume we
+  always use =sigmoid= activation (so we can use \(\sigma'(x) = \sigma(x) (1 - \sigma(x))\))
+- =calculate_deltas(network, activations, y)=
+  - Calculates the \(\delta^l_j\) from the previous page
+- =batch_update_nn(network, activation, deltas, eta)=
+  - Returns the weights after one round of gradient descent updates
+  - \(w^l_{jk} \to w^l_{jk} - \eta \frac{\partial C}{\partial w^l_{jk}}\), \(b^l_{j} \to b^l_{j} - \eta \frac{\partial C}{\partial b^l_{j}}\)
+  - Probably easiest to use deepcopy =from copy import deepcopy=, make
+    a copy of the network, then update using indices, rather than
+    trying to make the network as you go
+
+
+** Exercises
+\vspace{-3mm}
+- =sgd_nn(x, y, theta0, eta=0.1)=
+  - Similar structure as our previous stochastic gradient descent, but
+    uses the functions above to do the updates of the weights on each
+    sample
+  - Instead of input functions, assume a sum of squares cost function
+    and use the batch update sequence you've just written
+    =feedforward_=, =calculate_deltas=, =batch_update_nn=
+  - It can be useful to save the values of the cost function to
+    monitor how much the network is changing, particularly to try out
+    different eta
+  - You might find it easier to drop the n_iterations and run n_epochs
+    (times over dataset) with your own training schedule
+    (eta choice)
+- Try training a network on our xor problem from last week.
+- Hint: use gaussian initialized weights, play with the alpha and
+  n_iterations hyperparameters. You might need to try it a few times
+  with different starting points to get good convergence
+- Try training a network for the Fisher classification problem from
+  two weeks ago
+  - Play around with the network architecture (number of layers/nodes)
+- Use the =multi_accuracy= and print out your best network and
+  accuracy into =results.txt=
