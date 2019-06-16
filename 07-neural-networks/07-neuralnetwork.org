@@ -1,0 +1,293 @@
+#+TITLE:
+# +AUTHOR:    Ian J. Watson
+# +EMAIL:     ian.james.watson@cern.ch
+# +DATE:      University of Seoul Graduate Course
+#+startup: beamer
+#+LaTeX_CLASS: beamer
+#+OPTIONS: ^:{} toc:nil H:2
+#+BEAMER_FRAME_LEVEL: 2
+#+LATEX_HEADER: \usepackage{tikz}  \usetikzlibrary{hobby}
+#+LATEX_HEADER: \usepackage{amsmath} \usepackage{graphicx} \usepackage{neuralnetwork}
+  
+# Theme Replacements
+#+BEAMER_THEME: Madrid
+#+LATEX_HEADER: \usepackage{mathpazo} \usepackage{bm}
+# +LATEX_HEADER: \definecolor{IanColor}{rgb}{0.4, 0, 0.6}
+#+BEAMER_HEADER: \definecolor{IanColor}{rgb}{0.0, 0.4, 0.6}
+#+BEAMER_HEADER: \usecolortheme[named=IanColor]{structure} % Set a nicer base color
+#+BEAMER_HEADER: \newcommand*{\LargerCdot}{\raisebox{-0.7ex}{\scalebox{2.5}{$\cdot$}}} 
+# +LATEX_HEADER: \setbeamertemplate{items}{$\LargerCdot$} % or \bullet, replaces ugly png
+#+BEAMDER_HEADER: \setbeamertemplate{items}{$\bullet$} % or \bullet, replaces ugly png
+#+BEAMER_HEADER: \colorlet{DarkIanColor}{IanColor!80!black} \setbeamercolor{alerted text}{fg=DarkIanColor} \setbeamerfont{alerted text}{series=\bfseries}
+#+LATEX_HEADER: \usepackage{epsdice}
+
+  
+#+LATEX: \setbeamertemplate{navigation symbols}{} % Turn off navigation
+  
+#+LATEX: \newcommand{\backupbegin}{\newcounter{framenumberappendix} \setcounter{framenumberappendix}{\value{framenumber}}}
+#+LATEX: \newcommand{\backupend}{\addtocounter{framenumberappendix}{-\value{framenumber}} \addtocounter{framenumber}{\value{framenumberappendix}}}
+  
+#+LATEX: \institute[UoS]{University of Seoul}
+#+LATEX: \author{Ian J. Watson}
+#+LATEX: \title[Neural Networks]{Introduction to Machine Learning (by Implementation)} \subtitle{Lecture 7: Neural Networks}
+#+LATEX: \date[ML (2019)]{University of Seoul Graduate Course 2019}
+#+LATEX: \titlegraphic{\includegraphics[height=.14\textheight]{../../../course/2018-stats-for-pp/KRF_logo_PNG.png} \hspace{15mm} \includegraphics[height=.2\textheight]{../../2017-stats-for-pp/logo/UOS_emblem.png}}
+#+LATEX: \maketitle
+
+* Introduction
+
+** Some very simple examples for simple logistic regression
+
+   #+begin_export latex
+\includegraphics<1>[width=.33\textwidth]{AND.png}
+\includegraphics<1>[width=.33\textwidth]{OR.png}
+\includegraphics<2>[width=.33\textwidth]{AND_cut.png}
+\includegraphics<2>[width=.33\textwidth]{OR_cut.png}   
+\includegraphics<3>[width=.33\textwidth]{AND_turnon.png}
+\includegraphics<3>[width=.33\textwidth]{OR_turnon.png}   
+   #+end_export
+
+- Let's think about using logistic regression to approximate some
+  simple binary functions
+- OR and AND gates
+  - OR is 0 (red) if both input are 0, 1 (blue) otherwise
+  - AND is 1 if both inputs are 1, 0 otherwise
+- Can we find logistic function approximations for this?
+  - That is, \(f(x_1, x_2)\) returns approximately 1 or 0 at the indicated points \pause
+- Yes! Take the projection perpendicular to the line \pause
+- and have the logistic turn on at the line
+  - e.g. \(f(x_1, x_2) = \sigma(2 x_1 + 2 x_2 - 1)\) for OR, \(f(x_1, x_2) = \sigma(2 x_1 + 2 x_2 - 3)\) for AND [\sigma is our logistic function]
+
+#+begin_src python :exports none :session
+import matplotlib.pyplot as plt
+import numpy as np
+
+x0 = [0]
+y0 = [0]
+
+x1 = [1, 0, 1]
+y1 = [0, 1, 1]
+
+plt.clf()
+plt.scatter(x0, y0, color='r', s=50)
+plt.scatter(x1, y1, color='b', s=50)
+plt.title("OR")
+plt.savefig("OR.png")
+plt.plot([0., 0.5], [0.5, 0.], color="black")
+plt.savefig("OR_cut.png")
+plt.plot([0., 1.], [0, 1.], color="black", linestyle="-.", lw=0.75)
+x = np.linspace(0, 1, 100)
+y = 0.1*(1. / (1. + np.exp(-1000*x+225))) + x
+plt.plot(x, y, color="green", linestyle="-.", lw=1)
+plt.plot([0, 0.5], [1, 0.5], color="b", ls="--", lw=1)
+plt.plot([1, 0.5], [0, 0.5], color="b", ls="--", lw=1)
+plt.savefig("OR_turnon.png")
+
+x0 = [1]
+y0 = [1]
+
+x1 = [1, 0, 0]
+y1 = [0, 1, 0]
+
+plt.clf()
+plt.title("AND")
+plt.scatter(x0, y0, color='b', s=50)
+plt.scatter(x1, y1, color='r', s=50)
+plt.savefig("AND.png")
+plt.plot([1, 0.5], [0.5, 1], color="black")
+plt.savefig("AND_cut.png")
+x = np.linspace(0, 1, 100)
+y = 0.1*(1. / (1. + np.exp(-1000*x+725))) + x
+plt.plot(x, y, color="green", linestyle="-.", lw=1)
+plt.plot([0., 1.], [0, 1.], color="black", linestyle="-.", lw=0.75)
+plt.plot([0, 0.5], [1, 0.5], color="r", ls="--", lw=1)
+plt.plot([1, 0.5], [0, 0.5], color="r", ls="--", lw=1)
+plt.savefig("AND_turnon.png")
+
+x1 = [0, 1]
+y1 = [0, 1]
+
+x0 = [1, 0]
+y0 = [0, 1]
+
+plt.clf()
+plt.scatter(x0, y0, color='r', s=50)
+plt.scatter(x1, y1, color='b', s=50)
+plt.title("XOR")
+plt.savefig("XOR.png")
+
+x = np.linspace(0, 1, 100)
+y = 0.1*(1. / (1. + np.exp(-1000*x+725))) + x
+plt.plot(x, y, color="green", linestyle="-.", lw=1)
+plt.plot([0., 1.], [0, 1.], color="black", linestyle="-.", lw=0.75)
+plt.plot([0, 0.5], [1, 0.5], color="r", ls="--", lw=1)
+plt.plot([1, 0.5], [0, 0.5], color="r", ls="--", lw=1)
+
+x = np.linspace(0, 1, 100)
+y = 0.1*(1. / (1. + np.exp(-1000*(1-x)+725))) + x
+plt.plot(x, y, color="magenta", linestyle="-.", lw=1)
+plt.plot([0., 1.], [0, 1.], color="black", linestyle="-.", lw=0.75)
+plt.plot([0, 0.5], [1, 0.5], color="r", ls="--", lw=1)
+plt.plot([1, 0.5], [0, 0.5], color="r", ls="--", lw=1)
+plt.savefig("XOR_turnon.png")
+
+#+end_src
+
+#+RESULTS:
+| <matplotlib.lines.Line2D | object | at | 0x7f8841229588> |
+
+** Very simple example with issues for Logistic Regression
+
+#+begin_export latex
+\includegraphics[width=.33\textwidth]{XOR.png}
+#+end_export
+
+- Now consider the XOR gate: 1 if both inputs are the same, 0 otherwise
+- The XOR gate can't be generated with a logistic function!
+- Try it: no matter what line you draw, can't draw a logistic function
+  that turns on only the blue!
+
+** How to Fix: more logistic curves!
+
+#+attr_latex: :width .5\textwidth
+[[file:XOR_turnon.png]]
+
+- Can fix by having 2 turn-on curves, one turning on either of the
+  blue points, then summing the result
+- \(f(x_1, x_2) = \) [[color:green][\(\sigma(2 x_1 + 2 x_2 - 1)\)]] \(+\) [[color:magenta][\(\sigma(- 2 x_1 - 2 x_2 + 1)\)]]
+
+** The Feed-Forward Neural Network
+
+#+begin_export latex
+
+\centering
+\begin{neuralnetwork}[height=3]
+ \newcommand{\x}[2]{$x_#2$}
+ \newcommand{\y}[2]{$y$}
+ \newcommand{\hfirst}[2]{\small $h_#2$}
+ \newcommand{\hsecond}[2]{\small $h^{(2)}_#2$}
+ \inputlayer[count=2, bias=false, title=Input\\layer, text=\x]
+ \hiddenlayer[count=2, bias=false, title=Hidden\\layer, text=\hfirst] \linklayers
+% \hiddenlayer[count=3, bias=false, title=Hidden\\layer 2, text=\hsecond] \linklayers
+ \outputlayer[count=1, title=Output\\layer, text=\y] \linklayers
+\end{neuralnetwork}
+#+end_export
+
+- Consider the structure of what we just made
+  - \(y = f(x_1, x_2) = \sigma(-1 + 2 x_1 + 2 x_2) + \sigma(1 - 2 x_1 - 2 x_2)\)
+- Decompose the function into:
+  - the /input layer/ of \(\hat{x}\),
+  - the /hidden layer/ which calculates \(h_i = \beta_i \cdot x\) then passes if
+    through the /activation function/ \sigma, (called "sigmoid" in NN terms)
+    - as in logistic, there is an extra \(\beta_0\), called the
+      /bias/, which controls how big the input into the node must be to activate
+  - the /output layer/ which sums the results of the hidden layer and gives \(y\)
+    - \(y = 0 + 1 \cdot \sigma(h_1) + 1 \cdot \sigma(h_2)\)
+# , \(h_1 = 2 x_1 + 2 x_2 - 1\), \(h_2 = - 2 x_1 - 2 x_2 + 1\)
+# - The logistic function (when in a NN its called "sigmoid") is our "activation function"
+
+** Feed-Forward Neural Network
+
+#+begin_export latex
+
+\centering
+\begin{neuralnetwork}[height=5]
+ \newcommand{\x}[2]{$x_#2$}
+ \newcommand{\y}[2]{$y_#2$}
+ \newcommand{\hfirst}[2]{\small $h_#2$}
+ \inputlayer[count=3, bias=false, title=Input\\layer, text=\x]
+ \hiddenlayer[count=5, bias=false, title=Hidden\\layer, text=\hfirst] \linklayers
+% \hiddenlayer[count=3, bias=false, title=Hidden\\layer 2, text=\hsecond] \linklayers
+ \outputlayer[count=3, title=Output\\layer, text=\y] \linklayers
+\end{neuralnetwork}
+#+end_export
+
+- In general, we could have several input variables, and output variables
+- In the case of classification, we would usually have a final
+  /softmax/ applied to \(\hat{y}\), but could use any /activation/ \(\varphi\) here also
+  - /softmax/ generalization of our multinomial logistic regression
+
+** Feed-Forward Neural Network
+
+#+begin_export latex
+
+\centering
+\begin{neuralnetwork}[height=5]
+ \newcommand{\x}[2]{$x_#2$}
+ \newcommand{\y}[2]{$y_#2$}
+ \newcommand{\hfirst}[2]{\small $h^{1}_#2$}
+ \newcommand{\hsecond}[2]{\small $h^{2}_#2$}
+ \inputlayer[count=3, bias=false, title=Input\\layer, text=\x]
+ \hiddenlayer[count=4, bias=false, title=Hidden\\layer 1, text=\hfirst] \linklayers
+ \hiddenlayer[count=5, bias=false, title=Hidden\\layer 2, text=\hsecond] \linklayers
+ \outputlayer[count=3, title=Output\\layer, text=\y] \linklayers
+\end{neuralnetwork}
+#+end_export
+
+- We can even have several hidden layers
+  - The previous layer acts the same as an /input layer/ to the next
+    layer
+- We call each node in the network a /neuron/
+
+** Universal Approximation Thereom
+
+\small
+Let \(\varphi :\mathbb {R} \to \mathbb {R}\) be a nonconstant,
+bounded, and continuous function. Let \(I_{m}\) denote the
+\(m\)-dimensional unit hypercube \([0,1]^{m}\). The space of
+real-valued continuous functions on \(I_{m}\) is denoted by
+\(C(I_{m})\). Then, given any \(\varepsilon >0\) and any function
+\(f\in C(I_{m})\), there exist an integer \(N\), real constants
+\(v_{i},b_{i}\in \mathbb {R}\) and real vectors \(w_{i}\in \mathbb {R}
+^{m}\) for \(i=1,\ldots ,N\) such that we may define:
+\[F(x)=\sum _{i=1}^{N}v_{i}\varphi \left(w_{i}^{T}x+b_{i}\right)\]
+as an approximate realization of the function \(f\); that is,
+\[|F(x)-f(x)|<\varepsilon\]
+for all \(x\in I_{m}\). In other words, functions of the form \(F(x)\) are dense in \(C(I_{m})\).
+
+This still holds when replacing \(I_{m}\) with any compact subset of \(\mathbb {R} ^{m}\). 
+
+- In brief: with a hidden layer (of enough nodes), any (sensible)
+  function \(f : \mathbb{R}^m \to \mathbb{R}\) can be approximated by
+  a feed-forward NN
+  - Any (sensible) activation \(\varphi\) can work, not just \sigma
+
+* Exercises
+
+** Exercises
+
+- Today, we will just try to come up with a format for neural
+  networks, and implement the XOR network by hand
+- A neural network will be a list (of layers) of lists (nodes) of
+  lists (node weights)
+  - =[ [[-3,2,2], [1,-2,-2]], [[0,1,1]] ]= is a one hidden layer
+    network of 2 hidden nodes, there are two inputs, the first node
+    calculates \(-1 + 2x_1 + 2x_2\), the second calculates \(1 -
+    2x_1 - 2x_2\), the the output layer gives \(0 + h_1 + h_2\)
+- We will need some neuron calculators
+  - =inner_neuron(weight, input)= which calculates what we called
+    =inner= last time, where =weights= are =beta= and =input= is =x=
+    (with an extra bias weight) (you can just copy this function)
+  - =sigmoid_neuron(weights, input)= does =inner_neuron= and then
+    passes it through =sigmoid= (=logistic_fn= from last time)
+
+** Exercises
+
+- =feedforward_(network, input_vector, hidden_neuron=sigmoid_neuron,
+  output_neuron=inner_neuron)=
+  - split the network into hidden layers, and the output layer
+  - pass the =input_vector= through the hidden layers applying the
+    =hidden_neuron= (nb could be more than one), storing the results
+  - pass the result through the =output_layer= applying
+    =output_neuron=
+  - return a list of lists of the hidden layer values, and the output
+    layer value
+- =feedforward(network, input_vector, hidden_neuron=sigmoid_neuron,
+  output_neuron=inner_neuron)=
+  - Run =feedforward_= but drop the hidden layer values
+- What I showed earlier was actually the XNOR gate (0,0) and (1,1) are
+  1 and (0,1), (1,0) are 0. Construct the XOR logic gate as a neural
+  network where (0,1), (1,0) are 1 and (0,0) and (1,1) are 0
+  - See the =neural.py= for the implementation of XNOR, note that I've
+    multiplied by large numbers to force the sigmoid hidden layers to
+    return nicer values
