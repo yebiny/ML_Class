@@ -1,4 +1,6 @@
-MACHINE LEARNING CLASS
+
+[[_TOC_]]
+
 # Class Overview
  
 ## 03-regression-yebiny  
