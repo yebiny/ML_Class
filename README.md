@@ -3,6 +3,6 @@
 
 # Class Overview
  
-## 03-regression-yebiny  
-## 08-backprop-yebiny  
-## 07-neural-networks-yebiny  
+## 03-regression  
+## 08-backpropagation 
+## 07-neural-networks  
