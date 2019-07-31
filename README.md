@@ -23,6 +23,20 @@
 ## 05 Logistic regression
 ## 06 Multinomial regression
 ## 07 Neural networks
+* Introduction
+** Some very simple examples for simple logistic regression
+- Let's think about using logistic regression to approximate some
+  simple binary functions
+- OR and AND gates
+  - OR is 0 (red) if both input are 0, 1 (blue) otherwise
+  - AND is 1 if both inputs are 1, 0 otherwise
+- Can we find logistic function approximations for this?
+  - That is, \(f(x_1, x_2)\) returns approximately 1 or 0 at the indicated points \pause
+- Yes! Take the projection perpendicular to the line \pause
+- and have the logistic turn on at the line
+  - e.g. \(f(x_1, x_2) = \sigma(2 x_1 + 2 x_2 - 1)\) for OR, \(f(x_1, x_2) = \sigma(2 x_1 + 2 x_2 - 3)\) for AND [\sigma is our logistic function]
+
+
 ## 08 Backpropagation 
 ## 09 Decision trees
 ## 10 Training trees
