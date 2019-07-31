@@ -23,8 +23,8 @@
 ## 05 Logistic regression
 ## 06 Multinomial regression
 ## 07 Neural networks
-* Introduction
-** Some very simple examples for simple logistic regression
+### Introduction
+* Some very simple examples for simple logistic regression
 - Let's think about using logistic regression to approximate some
   simple binary functions
 - OR and AND gates
