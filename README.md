@@ -2,6 +2,7 @@
 # Class Overview
 ## 02 Gradient descent
 ## 03 Regression  
+### 
 - Regression is one of the major tasks in machine learning
 - Idea: given some pieces of data, can you predict some dependent variables
 - Examples
